@@ -26,7 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private var phase: SessionPhase = .idle
+    private var phase: SessionPhase = .idle {
+        didSet {
+            updateStatusItemAppearance()
+        }
+    }
     private var isTriggerHeld = false
     private var latestTranscript = ""
 
@@ -42,9 +46,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        button.image = NSImage(systemSymbolName: "waveform.and.mic", accessibilityDescription: "VoiceStreamInput")
-        button.image?.isTemplate = true
+        button.imagePosition = .imageOnly
+        updateStatusItemAppearance()
         button.toolTip = "按住 \(settings.recordingTriggerKey.title) 开始语音输入"
+    }
+
+    private func updateStatusItemAppearance() {
+        guard let button = statusItem.button else {
+            return
+        }
+
+        let isRecording = phase == .starting || phase == .listening
+        let symbolName = isRecording ? "mic.fill" : "mic"
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "VoiceStreamInput")
+        image?.isTemplate = !isRecording
+        button.image = image
+        button.contentTintColor = isRecording ? .systemRed : nil
     }
 
     private func rebuildMenu() {
