@@ -67,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         llmItem.submenu = makeLLMMenu()
         menu.addItem(llmItem)
 
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q"))
 
@@ -109,12 +113,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toggleItem.target = self
         toggleItem.state = settings.llmEnabled ? .on : .off
         submenu.addItem(toggleItem)
-
-        submenu.addItem(.separator())
-
-        let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        submenu.addItem(settingsItem)
 
         return submenu
     }
