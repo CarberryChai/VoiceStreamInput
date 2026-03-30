@@ -1,0 +1,27 @@
+.DS_Store
+
+# SwiftPM build artifacts
+.build/
+
+# Xcode / Swift user state
+.swiftpm/
+DerivedData/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+
+# App bundles and archives
+*.app
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+
+# Editor files
+.vscode/
+.idea/
+
+# Local secrets / env
+.env
+.env.*
+!.env.example

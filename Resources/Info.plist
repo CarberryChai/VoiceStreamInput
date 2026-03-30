@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>VoiceStreamInput</string>
+	<key>CFBundleExecutable</key>
+	<string>VoiceStreamInput</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.changlin.VoiceStreamInput</string>
+	<key>CFBundleName</key>
+	<string>VoiceStreamInput</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>需要麦克风权限用于按住 Fn 进行语音输入。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>需要语音识别权限将录音实时转成文字。</string>
+</dict>
+</plist>
