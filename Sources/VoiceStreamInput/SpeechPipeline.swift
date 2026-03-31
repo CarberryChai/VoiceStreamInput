@@ -22,18 +22,91 @@ enum SpeechPipelineError: LocalizedError {
     }
 }
 
+private final class AudioTapState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var smoothedLevel: Float = 0
+    private var onLevel: ((CGFloat) -> Void)?
+
+    init(
+        recognitionRequest: SFSpeechAudioBufferRecognitionRequest,
+        onLevel: @escaping (CGFloat) -> Void
+    ) {
+        self.recognitionRequest = recognitionRequest
+        self.onLevel = onLevel
+    }
+
+    func process(_ buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData?[0] else {
+            append(buffer)
+            return
+        }
+
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else {
+            append(buffer)
+            return
+        }
+
+        var energy: Float = 0
+        for index in 0..<frameCount {
+            let sample = channelData[index]
+            energy += sample * sample
+        }
+
+        let rms = sqrt(energy / Float(frameCount))
+        let db = 20 * log10(rms + 0.000_01)
+        let normalized = max(0, min(1, (db + 42) / 32))
+
+        lock.lock()
+        recognitionRequest?.append(buffer)
+        let smoothing: Float = normalized > smoothedLevel ? 0.4 : 0.15
+        smoothedLevel += (normalized - smoothedLevel) * smoothing
+        let level = smoothedLevel
+        let onLevel = self.onLevel
+        lock.unlock()
+
+        if let onLevel {
+            DispatchQueue.main.async {
+                onLevel(CGFloat(level))
+            }
+        }
+    }
+
+    func clear() {
+        lock.lock()
+        recognitionRequest = nil
+        onLevel = nil
+        smoothedLevel = 0
+        lock.unlock()
+    }
+
+    private func append(_ buffer: AVAudioPCMBuffer) {
+        lock.lock()
+        recognitionRequest?.append(buffer)
+        lock.unlock()
+    }
+}
+
+private func makeAudioTapHandler(_ audioTapState: AudioTapState) -> @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void {
+    { buffer, _ in
+        audioTapState.process(buffer)
+    }
+}
+
 @MainActor
 final class SpeechPipeline {
+
     private var audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recognizer: SFSpeechRecognizer?
+    private var audioTapState: AudioTapState?
 
     private var onTranscript: ((String) -> Void)?
     private var onLevel: ((CGFloat) -> Void)?
 
     private var latestTranscript = ""
-    private var smoothedLevel: Float = 0
     private var isRunning = false
     private var isStopping = false
     private var stopContinuation: CheckedContinuation<String, Never>?
@@ -61,7 +134,6 @@ final class SpeechPipeline {
         self.onTranscript = onTranscript
         self.onLevel = onLevel
         latestTranscript = ""
-        smoothedLevel = 0
         isStopping = false
 
         let recognizer = SFSpeechRecognizer(locale: locale)
@@ -76,6 +148,8 @@ final class SpeechPipeline {
         request.taskHint = .dictation
         request.addsPunctuation = true
         recognitionRequest = request
+        let audioTapState = AudioTapState(recognitionRequest: request, onLevel: onLevel)
+        self.audioTapState = audioTapState
 
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             DispatchQueue.main.async {
@@ -86,9 +160,7 @@ final class SpeechPipeline {
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            self?.handleAudioBuffer(buffer)
-        }
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format, block: makeAudioTapHandler(audioTapState))
 
         audioEngine.prepare()
         do {
@@ -116,35 +188,6 @@ final class SpeechPipeline {
                 try? await Task.sleep(for: .milliseconds(450))
                 finishIfNeeded()
             }
-        }
-    }
-
-    private func handleAudioBuffer(_ buffer: AVAudioPCMBuffer) {
-        recognitionRequest?.append(buffer)
-
-        guard let channelData = buffer.floatChannelData?[0] else {
-            return
-        }
-
-        let frameCount = Int(buffer.frameLength)
-        guard frameCount > 0 else {
-            return
-        }
-
-        var energy: Float = 0
-        for index in 0..<frameCount {
-            let sample = channelData[index]
-            energy += sample * sample
-        }
-
-        let rms = sqrt(energy / Float(frameCount))
-        let db = 20 * log10(rms + 0.000_01)
-        let normalized = max(0, min(1, (db + 42) / 32))
-        let smoothing: Float = normalized > smoothedLevel ? 0.4 : 0.15
-        smoothedLevel += (normalized - smoothedLevel) * smoothing
-
-        DispatchQueue.main.async { [weak self] in
-            self?.onLevel?(CGFloat(self?.smoothedLevel ?? 0))
         }
     }
 
@@ -184,6 +227,8 @@ final class SpeechPipeline {
         recognitionTask = nil
         recognitionRequest = nil
         recognizer = nil
+        audioTapState?.clear()
+        audioTapState = nil
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine = AVAudioEngine()

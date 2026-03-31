@@ -172,8 +172,8 @@ final class RecordingOverlayController {
         label.textColor = .labelColor
         label.maximumNumberOfLines = 1
 
-        let rootView = NSView(frame: panel.contentView?.bounds ?? .zero)
-        rootView.translatesAutoresizingMaskIntoConstraints = false
+        let rootView = NSView(frame: NSRect(x: 0, y: 0, width: panel.frame.width, height: panelHeight))
+        rootView.autoresizingMask = [.width, .height]
         rootView.wantsLayer = true
         panel.contentView = rootView
 
@@ -191,8 +191,6 @@ final class RecordingOverlayController {
         labelWidthConstraint?.isActive = true
 
         NSLayoutConstraint.activate([
-            rootView.heightAnchor.constraint(equalToConstant: panelHeight),
-
             materialView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
             materialView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
             materialView.topAnchor.constraint(equalTo: rootView.topAnchor),

@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private var isTriggerHeld = false
     private var latestTranscript = ""
+    private var targetApplication: NSRunningApplication?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureStatusItem()
@@ -59,9 +60,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let isRecording = phase == .starting || phase == .listening
         let symbolName = isRecording ? "mic.fill" : "mic"
         let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "VoiceStreamInput")
-        image?.isTemplate = !isRecording
-        button.image = image
-        button.contentTintColor = isRecording ? .systemRed : nil
+
+        if isRecording {
+            let configuredImage = image?.withSymbolConfiguration(.init(paletteColors: [.systemRed]))
+            configuredImage?.isTemplate = false
+            button.image = configuredImage
+        } else {
+            image?.isTemplate = true
+            button.image = image
+        }
+
+        button.contentTintColor = nil
     }
 
     private func rebuildMenu() {
@@ -139,8 +148,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await speechPipeline.primePermissions()
         }
 
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        if !AXIsProcessTrusted() {
+            let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
     }
 
     private func startHotkeyMonitor() {
@@ -169,6 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         isTriggerHeld = true
         phase = .starting
         latestTranscript = ""
+        targetApplication = NSWorkspace.shared.frontmostApplication
         overlayController.showListening()
 
         Task {
@@ -239,8 +251,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        await pasteInjector.inject(finalText)
         overlayController.hide()
+        try? await Task.sleep(for: .milliseconds(240))
+        await pasteInjector.inject(finalText, targetApplication: targetApplication)
+        targetApplication = nil
         phase = .idle
     }
 

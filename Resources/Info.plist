@@ -21,7 +21,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>需要麦克风权限用于按住 Fn 进行语音输入。</string>
+	<string>需要麦克风权限用于按住录音键进行语音输入。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>需要语音识别权限将录音实时转成文字。</string>
 </dict>
